@@ -1,5 +1,4 @@
-# visual-validator-mcp-server
-
+# Frontlaude
 localhost 개발 서버의 UI를 스크린샷으로 캡처하고, rule-based 검증 + CNN 보조 분석을 통해 구조화된 리포트를 반환하는 **MCP 서버**.
 
 Claude Code 세션 안에서 **코드 수정 → 캡처 → 검증 → 재수정** 루프를 끊김 없이 돌릴 수 있습니다.
