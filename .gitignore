@@ -210,4 +210,7 @@ __marimo__/
 /visual-validator-mcp-server/training/.venv/**
 /visual-validator-mcp-server/training/dataset/**
 /visual-validator-mcp-server/node_modules/**
+/visual-validator-mcp-server/dist/**
+/visual-validator-mcp-server/models/*.onnx
+/visual-validator-mcp-server/models/*.pt
 

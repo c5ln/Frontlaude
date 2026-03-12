@@ -11,6 +11,9 @@ import { CNNAnalyzer } from "./cnn/analyzer.js";
 import { EmptyStateRule } from "./rules/empty-state.js";
 import { AlignmentRule } from "./rules/alignment.js";
 import { ColorContrastRule } from "./rules/color-contrast.js";
+import { SpacingRule } from "./rules/spacing.js";
+import { OverflowRule } from "./rules/overflow.js";
+import { WhitespaceRule } from "./rules/whitespace.js";
 
 import {
   CAPTURE_SCREENSHOT_TOOL,
@@ -21,6 +24,10 @@ import {
   handleCaptureAndValidate,
 } from "./tools/capture-and-validate.js";
 import { LIST_RULES_TOOL, handleListRules } from "./tools/list-rules.js";
+import {
+  COMPARE_SCREENSHOTS_TOOL,
+  handleCompareScreenshots,
+} from "./tools/compare-screenshots.js";
 
 // ─── Server setup ─────────────────────────────────────────────────────────────
 
@@ -35,13 +42,21 @@ const ruleEngine = new RuleEngine([
   new EmptyStateRule(),
   new AlignmentRule(),
   new ColorContrastRule(),
+  new SpacingRule(),
+  new OverflowRule(),
+  new WhitespaceRule(),
 ]);
 
 const cnnAnalyzer = new CNNAnalyzer();
 
 // ─── Tool registry ────────────────────────────────────────────────────────────
 
-const TOOLS = [CAPTURE_SCREENSHOT_TOOL, CAPTURE_AND_VALIDATE_TOOL, LIST_RULES_TOOL];
+const TOOLS = [
+  CAPTURE_SCREENSHOT_TOOL,
+  CAPTURE_AND_VALIDATE_TOOL,
+  COMPARE_SCREENSHOTS_TOOL,
+  LIST_RULES_TOOL,
+];
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
 
@@ -56,6 +71,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case "vv_capture_and_validate":
       return handleCaptureAndValidate(args, capturer, ruleEngine, cnnAnalyzer);
+
+    case "vv_compare_screenshots":
+      return handleCompareScreenshots(args, capturer);
 
     case "vv_list_rules":
       return handleListRules(ruleEngine);
@@ -73,9 +91,9 @@ async function main() {
   // Try to load CNN model (optional — server works without it)
   try {
     await cnnAnalyzer.load();
-    process.stderr.write("visual-validator MCP server v0.3.0 started (3 rules + CNN loaded)\n");
+    process.stderr.write("visual-validator MCP server v0.4.0 started (6 rules + CNN loaded)\n");
   } catch {
-    process.stderr.write("visual-validator MCP server v0.3.0 started (3 rules loaded, CNN model not found — skipping)\n");
+    process.stderr.write("visual-validator MCP server v0.4.0 started (6 rules loaded, CNN model not found — skipping)\n");
   }
 
   const transport = new StdioServerTransport();
