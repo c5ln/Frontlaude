@@ -1,15 +1,7 @@
 import { RuleResult, BoundingBox } from "../types.js";
 import { BaseRule, pass, warn, error } from "./base-rule.js";
 import { toAnalysisGrayscale } from "../utils/image-processing.js";
-
-// Pixel is "background" if its grayscale value is above this
-const BACKGROUND_THRESHOLD = 238;
-// Whitespace ratio thresholds
-const WHITESPACE_RATIO_ERROR   = 0.93;  // >93% whitespace → basically empty
-const WHITESPACE_RATIO_WARNING = 0.82;  // >82% whitespace → very sparse layout
-// Quadrant imbalance: difference in content ratio between opposing quadrants
-const IMBALANCE_ERROR   = 0.55;  // one quadrant has 55% more content than its opposite
-const IMBALANCE_WARNING = 0.30;
+import { config } from "../config.js";
 
 export class WhitespaceRule implements BaseRule {
   readonly id = "whitespace";
@@ -20,16 +12,18 @@ export class WhitespaceRule implements BaseRule {
     const gray = await toAnalysisGrayscale(pngBuffer);
     const { data, width, height } = gray;
 
+    const { ratioError, ratioWarning, imbalanceError, imbalanceWarning, bgThreshold } = config.whitespace;
+
     // Overall content/whitespace ratio
     let bgCount = 0;
     for (let i = 0; i < data.length; i++) {
-      if (data[i] >= BACKGROUND_THRESHOLD) bgCount++;
+      if (data[i] >= bgThreshold) bgCount++;
     }
     const whitespaceRatio = bgCount / data.length;
     const contentRatio    = 1 - whitespaceRatio;
 
     // Quadrant content densities (top-left, top-right, bottom-left, bottom-right)
-    const qDensities = quadrantDensities(data, width, height);
+    const qDensities = quadrantDensities(data, width, height, bgThreshold);
     const imbalanceH = quadrantImbalance(qDensities, "horizontal"); // left vs right
     const imbalanceV = quadrantImbalance(qDensities, "vertical");   // top vs bottom
     const maxImbalance = Math.max(imbalanceH, imbalanceV);
@@ -48,14 +42,14 @@ export class WhitespaceRule implements BaseRule {
     };
 
     // Excessive whitespace check
-    if (whitespaceRatio > WHITESPACE_RATIO_ERROR) {
+    if (whitespaceRatio > ratioError) {
       return error(
         this.id,
         `Excessive whitespace: ${(whitespaceRatio * 100).toFixed(0)}% of the screen is empty`,
         details
       );
     }
-    if (whitespaceRatio > WHITESPACE_RATIO_WARNING) {
+    if (whitespaceRatio > ratioWarning) {
       return warn(
         this.id,
         `Very sparse layout: ${(whitespaceRatio * 100).toFixed(0)}% whitespace`,
@@ -64,7 +58,7 @@ export class WhitespaceRule implements BaseRule {
     }
 
     // Layout balance check
-    if (maxImbalance > IMBALANCE_ERROR) {
+    if (maxImbalance > imbalanceError) {
       const axis = imbalanceH > imbalanceV ? "left/right" : "top/bottom";
       return warn(
         this.id,
@@ -73,7 +67,7 @@ export class WhitespaceRule implements BaseRule {
         imbalanceRegions(qDensities, width, height)
       );
     }
-    if (maxImbalance > IMBALANCE_WARNING) {
+    if (maxImbalance > imbalanceWarning) {
       const axis = imbalanceH > imbalanceV ? "left/right" : "top/bottom";
       return warn(
         this.id,
@@ -93,7 +87,7 @@ export class WhitespaceRule implements BaseRule {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Returns content density [0,1] for each quadrant: [TL, TR, BL, BR] */
-function quadrantDensities(data: Buffer, w: number, h: number): [number, number, number, number] {
+function quadrantDensities(data: Buffer, w: number, h: number, bgThreshold: number): [number, number, number, number] {
   const hw = Math.floor(w / 2);
   const hh = Math.floor(h / 2);
 
@@ -104,7 +98,7 @@ function quadrantDensities(data: Buffer, w: number, h: number): [number, number,
     for (let x = 0; x < w; x++) {
       const qIdx = (y >= hh ? 2 : 0) + (x >= hw ? 1 : 0);
       totals[qIdx]++;
-      if (data[y * w + x] < BACKGROUND_THRESHOLD) counts[qIdx]++;
+      if (data[y * w + x] < bgThreshold) counts[qIdx]++;
     }
   }
 

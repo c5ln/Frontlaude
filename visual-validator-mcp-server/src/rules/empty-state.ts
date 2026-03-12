@@ -1,14 +1,7 @@
 import { RuleResult } from "../types.js";
 import { BaseRule, pass, warn, error } from "./base-rule.js";
 import { toAnalysisGrayscale, computeVariance } from "../utils/image-processing.js";
-
-// Thresholds (pixel std-dev on 0-255 scale)
-const EMPTY_STDDEV_ERROR = 10;    // nearly uniform — blank page or solid color
-const EMPTY_STDDEV_WARNING = 20;  // very low content, possibly loading state
-
-// What fraction of pixels can be near-white (> 240) before flagging
-const BLANK_WHITE_RATIO_ERROR = 0.97;
-const BLANK_WHITE_RATIO_WARNING = 0.90;
+import { config } from "../config.js";
 
 export class EmptyStateRule implements BaseRule {
   readonly id = "empty_state";
@@ -31,7 +24,8 @@ export class EmptyStateRule implements BaseRule {
       whiteRatio: parseFloat((whiteRatio * 100).toFixed(1)),
     };
 
-    if (stdDev < EMPTY_STDDEV_ERROR || whiteRatio > BLANK_WHITE_RATIO_ERROR) {
+    const { stdDevError, stdDevWarning, whiteRatioError, whiteRatioWarning } = config.emptyState;
+    if (stdDev < stdDevError || whiteRatio > whiteRatioError) {
       return error(
         this.id,
         `Screen appears empty or blank (std-dev: ${stdDev.toFixed(1)}, white: ${(whiteRatio * 100).toFixed(0)}%)`,
@@ -39,7 +33,7 @@ export class EmptyStateRule implements BaseRule {
       );
     }
 
-    if (stdDev < EMPTY_STDDEV_WARNING || whiteRatio > BLANK_WHITE_RATIO_WARNING) {
+    if (stdDev < stdDevWarning || whiteRatio > whiteRatioWarning) {
       return warn(
         this.id,
         `Very low content detected — possible loading state (std-dev: ${stdDev.toFixed(1)}, white: ${(whiteRatio * 100).toFixed(0)}%)`,

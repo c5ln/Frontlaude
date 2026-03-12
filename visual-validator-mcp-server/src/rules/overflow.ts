@@ -2,12 +2,7 @@ import { RuleResult, BoundingBox } from "../types.js";
 import { BaseRule, pass, warn, error } from "./base-rule.js";
 import { toAnalysisGrayscale, applySobelXY } from "../utils/image-processing.js";
 import { ANALYSIS_RESOLUTION } from "../constants.js";
-
-// Strip width (px) to scan near each edge
-const STRIP_PX = 6;
-// Edge density thresholds (fraction of max possible edge energy in the strip)
-const OVERFLOW_DENSITY_ERROR = 0.18;
-const OVERFLOW_DENSITY_WARNING = 0.10;
+import { config } from "../config.js";
 
 export class OverflowRule implements BaseRule {
   readonly id = "overflow";
@@ -18,15 +13,16 @@ export class OverflowRule implements BaseRule {
     const gray = await toAnalysisGrayscale(pngBuffer);
     const { mag, width, height } = applySobelXY(gray);
 
+    const { densityError, densityWarning, stripPx } = config.overflow;
     const densities = {
-      top:    stripDensity(mag, width, height, "top",    STRIP_PX),
-      bottom: stripDensity(mag, width, height, "bottom", STRIP_PX),
-      left:   stripDensity(mag, width, height, "left",   STRIP_PX),
-      right:  stripDensity(mag, width, height, "right",  STRIP_PX),
+      top:    stripDensity(mag, width, height, "top",    stripPx),
+      bottom: stripDensity(mag, width, height, "bottom", stripPx),
+      left:   stripDensity(mag, width, height, "left",   stripPx),
+      right:  stripDensity(mag, width, height, "right",  stripPx),
     };
 
     const overflowEdges = (Object.entries(densities) as [string, number][])
-      .filter(([, d]) => d > OVERFLOW_DENSITY_WARNING)
+      .filter(([, d]) => d > densityWarning)
       .sort(([, a], [, b]) => b - a);
 
     const maxDensity = Math.max(...Object.values(densities));
@@ -43,7 +39,7 @@ export class OverflowRule implements BaseRule {
     const affectedEdges = overflowEdges.map(([side]) => side).join(", ");
     const regions = overflowEdges.map(([side]) => sideToRegion(side, width, height));
 
-    if (maxDensity > OVERFLOW_DENSITY_ERROR) {
+    if (maxDensity > densityError) {
       return error(
         this.id,
         `Content overflow detected at: ${affectedEdges}`,
@@ -93,7 +89,7 @@ function stripDensity(
 /** Map an edge side back to approximate original-image bounding box */
 function sideToRegion(side: string, _w: number, _h: number): BoundingBox {
   const imgW = 1280, imgH = 720;
-  const stripPx = Math.round(STRIP_PX / ANALYSIS_RESOLUTION.width * imgW);
+  const stripPx = Math.round(config.overflow.stripPx / ANALYSIS_RESOLUTION.width * imgW);
   switch (side) {
     case "top":    return { x: 0,           y: 0,           w: imgW,  h: stripPx };
     case "bottom": return { x: 0,           y: imgH - stripPx, w: imgW, h: stripPx };

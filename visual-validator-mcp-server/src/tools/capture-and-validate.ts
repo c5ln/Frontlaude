@@ -60,9 +60,14 @@ export async function handleCaptureAndValidate(
   cnnAnalyzer?: CNNAnalyzer
 ): Promise<CallToolResult> {
   const url = args.url as string;
+  if (!url) throw new Error("url is required.");
+
   const ruleFilter = args.rules as string[] | undefined;
   const useCNN = (args.use_cnn as boolean | undefined) ?? true;
   const threshold = (args.threshold as number | undefined) ?? DEFAULT_CNN_THRESHOLD;
+  if (threshold < 0 || threshold > 1) {
+    throw new Error(`threshold must be between 0.0 and 1.0, got ${threshold}`);
+  }
 
   // 1. Capture screenshot
   const capture = await capturer.capture({

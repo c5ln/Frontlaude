@@ -52,14 +52,22 @@ export async function handleCompareScreenshots(
   args: Record<string, unknown>,
   capturer: PlaywrightCapture
 ): Promise<CallToolResult> {
+  const urlA = args.url_a as string;
+  const urlB = args.url_b as string;
+  if (!urlA) throw new Error("url_a is required.");
+  if (!urlB) throw new Error("url_b is required.");
+
   const viewport = (args.viewport as { width: number; height: number } | undefined)
     ?? DEFAULT_VIEWPORT;
   const diffThreshold = (args.diff_threshold as number | undefined) ?? 0.1;
+  if (diffThreshold < 0 || diffThreshold > 1) {
+    throw new Error(`diff_threshold must be between 0.0 and 1.0, got ${diffThreshold}`);
+  }
 
   // ── Resolve both images ───────────────────────────────────────────────────
   const [bufA, bufB] = await Promise.all([
-    resolveImage(args.url_a as string, capturer, viewport),
-    resolveImage(args.url_b as string, capturer, viewport),
+    resolveImage(urlA, capturer, viewport),
+    resolveImage(urlB, capturer, viewport),
   ]);
 
   // ── Normalise to same dimensions (RGBA) ───────────────────────────────────

@@ -6,13 +6,7 @@ import {
   findPeaks,
 } from "../utils/image-processing.js";
 import { ANALYSIS_RESOLUTION } from "../constants.js";
-
-// Alignment ratio: fraction of vertical-edge energy that sits at dominant axes.
-// High ratio → aligned. Low ratio → scattered / misaligned.
-const ALIGNMENT_RATIO_ERROR = 0.55;
-const ALIGNMENT_RATIO_WARNING = 0.70;
-const PEAK_TOLERANCE_PX = 12;   // ±px around a peak counts as "aligned"
-const PEAK_MIN_DISTANCE = 20;   // minimum px between detected alignment axes
+import { config } from "../config.js";
 
 export class AlignmentRule implements BaseRule {
   readonly id = "alignment";
@@ -38,15 +32,16 @@ export class AlignmentRule implements BaseRule {
     }
 
     const maxCol = Math.max(...colProj);
+    const { errorRatio, warningRatio, peakTolerance, minPeakDistance } = config.alignment;
     const peakMinValue = maxCol * 0.15; // peaks must be at least 15% of strongest column
 
-    const peaks = findPeaks(colProj, peakMinValue, PEAK_MIN_DISTANCE);
+    const peaks = findPeaks(colProj, peakMinValue, minPeakDistance);
 
     // Sum energy near peaks vs total
     let alignedEnergy = 0;
     const peakSet = new Set<number>();
     for (const p of peaks) {
-      for (let dx = -PEAK_TOLERANCE_PX; dx <= PEAK_TOLERANCE_PX; dx++) {
+      for (let dx = -peakTolerance; dx <= peakTolerance; dx++) {
         const x = p + dx;
         if (x >= 0 && x < width) peakSet.add(x);
       }
@@ -66,7 +61,7 @@ export class AlignmentRule implements BaseRule {
       peaks: peaks.map((p) => Math.round((p / width) * 100)), // as % of width
     };
 
-    if (alignmentRatio < ALIGNMENT_RATIO_ERROR) {
+    if (alignmentRatio < errorRatio) {
       return error(
         this.id,
         `Elements appear misaligned — only ${(alignmentRatio * 100).toFixed(0)}% of vertical edges align to dominant axes`,
@@ -75,7 +70,7 @@ export class AlignmentRule implements BaseRule {
       );
     }
 
-    if (alignmentRatio < ALIGNMENT_RATIO_WARNING) {
+    if (alignmentRatio < warningRatio) {
       return warn(
         this.id,
         `Some elements may be misaligned (alignment ratio: ${(alignmentRatio * 100).toFixed(0)}%)`,

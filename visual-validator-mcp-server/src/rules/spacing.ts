@@ -1,16 +1,7 @@
 import { RuleResult } from "../types.js";
 import { BaseRule, pass, warn, error } from "./base-rule.js";
 import { toAnalysisGrayscale } from "../utils/image-processing.js";
-
-// A row is "content" if its mean grayscale value is below this threshold
-const CONTENT_ROW_THRESHOLD = 225;
-// Minimum gap size (px) to count as a layout gap (ignore sub-pixel noise)
-const MIN_GAP_PX = 3;
-// Minimum number of distinct gaps to analyse spacing consistency
-const MIN_GAPS_FOR_ANALYSIS = 4;
-// Coefficient of Variation thresholds (stdDev / mean)
-const CV_ERROR = 0.9;
-const CV_WARNING = 0.55;
+import { config } from "../config.js";
 
 export class SpacingRule implements BaseRule {
   readonly id = "spacing";
@@ -21,6 +12,8 @@ export class SpacingRule implements BaseRule {
     const gray = await toAnalysisGrayscale(pngBuffer);
     const { data, width, height } = gray;
 
+    const { cvError, cvWarning, minGapPx, minGaps, contentThreshold } = config.spacing;
+
     // Row projection: mean pixel value per row
     const rowMeans = new Float32Array(height);
     for (let y = 0; y < height; y++) {
@@ -30,12 +23,12 @@ export class SpacingRule implements BaseRule {
     }
 
     // Mark rows as content (dark) or gap (light)
-    const isContent = Array.from(rowMeans, (m) => m < CONTENT_ROW_THRESHOLD);
+    const isContent = Array.from(rowMeans, (m) => m < contentThreshold);
 
     // Extract gap sizes between content bands
-    const gaps = extractGapSizes(isContent, MIN_GAP_PX);
+    const gaps = extractGapSizes(isContent, minGapPx);
 
-    if (gaps.length < MIN_GAPS_FOR_ANALYSIS) {
+    if (gaps.length < minGaps) {
       return pass(this.id, `Too few layout gaps to analyse spacing (${gaps.length} found)`);
     }
 
@@ -47,14 +40,14 @@ export class SpacingRule implements BaseRule {
       gaps: gaps.slice(0, 10),  // first 10 for reference
     };
 
-    if (cv > CV_ERROR) {
+    if (cv > cvError) {
       return error(
         this.id,
         `Inconsistent spacing detected — gap CV: ${(cv * 100).toFixed(0)}% (mean ${mean.toFixed(0)}px, ${gaps.length} gaps)`,
         details
       );
     }
-    if (cv > CV_WARNING) {
+    if (cv > cvWarning) {
       return warn(
         this.id,
         `Spacing may be inconsistent — gap CV: ${(cv * 100).toFixed(0)}% (mean ${mean.toFixed(0)}px)`,

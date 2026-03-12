@@ -2,21 +2,15 @@ import { RuleResult, BoundingBox } from "../types.js";
 import { BaseRule, pass, warn, error } from "./base-rule.js";
 import { toAnalysisRGB, getRGBPixel } from "../utils/image-processing.js";
 import { ANALYSIS_RESOLUTION } from "../constants.js";
+import { config } from "../config.js";
 
-// WCAG 2.1 contrast ratio thresholds
-const WCAG_AA_NORMAL = 4.5;   // AA for normal text
-const WCAG_AA_LARGE = 3.0;    // AA for large text / UI components
+// WCAG 2.1 contrast ratio thresholds (fixed — based on WCAG spec)
+const WCAG_AA_NORMAL = 4.5;
+const WCAG_AA_LARGE  = 3.0;
 
-// Grid dimensions for analysis (cells)
+// Grid dimensions (fixed)
 const GRID_COLS = 16;
 const GRID_ROWS = 9;
-
-// A cell must have meaningful contrast range to be analysed
-const MIN_CELL_LUMINANCE_RANGE = 0.06;
-
-// Fraction of analysed cells that can fail before flagging
-const FAIL_RATIO_ERROR = 0.25;    // >25% of cells fail → error
-const FAIL_RATIO_WARNING = 0.10;  // >10% of cells fail → warning
 
 export class ColorContrastRule implements BaseRule {
   readonly id = "color_contrast";
@@ -33,6 +27,8 @@ export class ColorContrastRule implements BaseRule {
     let failedCells = 0;
     let minContrastFound = Infinity;
 
+    const { failRatioError, failRatioWarning, minLuminanceRange } = config.colorContrast;
+
     for (let row = 0; row < GRID_ROWS; row++) {
       for (let col = 0; col < GRID_COLS; col++) {
         const x0 = col * cellW;
@@ -43,7 +39,7 @@ export class ColorContrastRule implements BaseRule {
         const { minL, maxL } = this.cellLuminanceRange(rgb, x0, y0, x1, y1);
 
         // Skip cells without meaningful content (uniform background)
-        if (maxL - minL < MIN_CELL_LUMINANCE_RANGE) continue;
+        if (maxL - minL < minLuminanceRange) continue;
 
         analysedCells++;
         const ratio = contrastRatio(maxL, minL);
@@ -76,7 +72,7 @@ export class ColorContrastRule implements BaseRule {
       wcagAA: WCAG_AA_NORMAL,
     };
 
-    if (failRatio > FAIL_RATIO_ERROR) {
+    if (failRatio > failRatioError) {
       return error(
         this.id,
         `${failedCells} of ${analysedCells} analysed cells fail WCAG AA contrast (${(failRatio * 100).toFixed(0)}%)`,
@@ -85,7 +81,7 @@ export class ColorContrastRule implements BaseRule {
       );
     }
 
-    if (failRatio > FAIL_RATIO_WARNING) {
+    if (failRatio > failRatioWarning) {
       return warn(
         this.id,
         `${failedCells} cells with low contrast detected (${(failRatio * 100).toFixed(0)}% of content cells)`,
