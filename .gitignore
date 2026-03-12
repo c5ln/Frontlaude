@@ -205,3 +205,9 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+/visual-validator-mcp-server/training/.venv/**
+/visual-validator-mcp-server/training/dataset/**
+/visual-validator-mcp-server/node_modules/**
+
