@@ -93,7 +93,6 @@ diff_threshold  선택  픽셀 허용 오차 0–1  기본값: 0.1
 
 ## CNN 모델 설정
 
-Phase 3에서 학습한 MobileNetV2 기반 UI 품질 분류 모델입니다.
 `models/ui_quality.onnx` 파일이 있으면 자동으로 로드됩니다.
 
 ```bash
